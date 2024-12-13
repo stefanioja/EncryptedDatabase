@@ -65,7 +65,7 @@ def get_keys_by_user_id(user_id):
 def get_current_key_for_user(user_id):
     global con, cursor
     
-    cursor.execute('SELECT k.* FROM users u JOIN keys k ON u.current_key_id = k.idWHERE u.id = ?', (user_id,))
+    cursor.execute('SELECT k.* FROM users u JOIN keys k ON u.current_key_id = k.id WHERE u.id = ?', (user_id,))
     current_key = cursor.fetchone()
     
     return current_key
