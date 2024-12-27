@@ -10,7 +10,8 @@ def connect(filepath: str) -> None:
     con = sqlite3.connect(filepath)
     cursor = con.cursor()
 
-    path = os.path.join(os.getcwd(), 'db', 'schema.sql')
+    dir = os.path.dirname(filepath)
+    path = os.path.join(dir, 'db', 'schema.sql')
     with open(path, 'r') as reader:
         sql = reader.read()
 
@@ -19,6 +20,7 @@ def connect(filepath: str) -> None:
 
 def disconnect() -> None:
     global con, cursor
+    print('disconnecting')
     cursor.close()
     con.close()
 
@@ -55,6 +57,13 @@ def get_user_by_username(username):
 
     return user
 
+def get_key_by_key_id(key_id):
+    global con, cursor
+    cursor.execute("SELECT * FROM keys WHERE key_id = ?", (key,))
+    key = cursor.fetchone()
+
+    return key
+
 def get_keys_by_user_id(user_id):
     global con, cursor
     cursor.execute("SELECT * FROM keys WHERE user_id = ?", (user_id,))
@@ -69,6 +78,13 @@ def get_current_key_for_user(user_id):
     current_key = cursor.fetchone()
     
     return current_key
+
+def get_file_by_filename(user_id, filename):
+    global con, cursor
+    cursor.execute('SELECT * FROM files WHERE user_id = ? and filename = ?', (user_id, filename))
+    file = cursor.fetchone()
+
+    return file
 
 def get_files_by_user_id(user_id):
     global con, cursor
@@ -98,4 +114,3 @@ def delete_file(user_id, filename):
     global con, cursor
     cursor.execute("DELETE FROM files WHERE user_id = ? and filename = ?", (user_id, filename))
     con.commit()
-

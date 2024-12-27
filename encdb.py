@@ -1,10 +1,17 @@
 import json
 import os
 import sys
+import base64
 import argparse
+import re
 import SCrypt.RSA as rsa
+import SCrypt.utils as utils
 import db.dbconn as db
-import sqlite3
+
+def failure(msg, db):
+    print(msg)
+    db.disconnect()
+    os._exit(-1)
 
 if __name__ == '__main__':
     commander = argparse.ArgumentParser(prog='EncryptedDatabase', description='Tool to encrypt and manage files')
@@ -20,7 +27,7 @@ if __name__ == '__main__':
     generate.add_argument('-o', '--output', help='file where the keys will be stored', required=False, type=str)
 
     encrypt = subcommander.add_parser('encrypt', description='encrypt a file and adds it to the database')
-    encrypt.add_argument('-f', '--filename', help='path of the file to be encrypted', required=True, type=str)
+    encrypt.add_argument('-f', '--filepath', help='path of the file to be encrypted', required=True, type=str)
     encrypt.add_argument('-k', '--key', help='id of the public key used for decryption', required=False, type=int)
 
     delete = subcommander.add_parser('delete', description='deletes a file from the database')
@@ -28,48 +35,118 @@ if __name__ == '__main__':
 
     args = commander.parse_args()
 
+    abs_path = os.path.abspath(__file__)
+    parent_dir = os.path.dirname(abs_path)
+
+    try:
+        with open(os.path.join(parent_dir, 'config.json'), 'r') as fptr:
+            config = json.loads(fptr.read())
+    except FileNotFoundError:
+        print('config.json not found')
+        os._exit(-1)
+
+    try:
+        db_path = config['db_path']
+    except KeyError as e:
+        print(f"{e} is missing from config.json")
+        os._exit(-1)
+
+    db.connect(os.path.join(parent_dir, db_path))
+    username = os.getlogin()
+    user = db.get_user_by_username(username)
+
+    if user is None:
+        user_id = db.add_user(username)
+    else:
+        user_id = user[0]
+
     if args.command == 'read':
-        args = read.parse_known_args()
+        filename = args.filename
+        key = args.key
+        output = args.output
+
+        file = db.get_file_by_filename(user_id, filename)
+        if file is None:
+            failure('file not found', db)
+
+        path = file[2]
+
+        key.strip('()')
+        regex = r"(\S+)[, ]+(\S+)"
+        match = re.match(regex, key)
+        if match:
+            key = (match.group(1), match.group(2))
+        else:
+            failure('invalid key format', db)
+
+        d = int.from_bytes(base64.b64decode(key[0]), byteorder=sys.byteorder)
+        n = int.from_bytes(base64.b64decode(key[1]), byteorder=sys.byteorder)
+        key = (d, n)
+
+        rsa.RSA_decrypt_file(path, output, key)
     elif args.command == 'generate':
-        args = generate.parse_known_args()
+        try:
+            key_len = config['key_length']
+        except KeyError as e:
+            failure(f"{e} is missing from config.json")
+
+        public_key, private_key = rsa.RSA_key_gen(key_len)
+        public_key = utils.base64_tuple(public_key)
+        private_key = utils.base64_tuple(private_key)
+
+        key_id = db.add_key(user_id, public_key[0], public_key[1])
+        if args.default:
+            db.update_user(key_id, username)
+
+        e = public_key[0].decode('ascii')
+        d = private_key[0].decode('ascii')
+        n = private_key[1].decode('ascii')
+
+        key_pair = f'({e}, {n})\n({d}, {n})'
+        
+        if args.output is not None:
+            with open(args.output, 'w+') as writer:
+                writer.write(key_pair)
+        else:
+            print(key_pair)
     elif args.command == 'encrypt':
-        args = encrypt.parse_known_args()
+        try:
+            encrypted_path = config['encrypted_path']
+        except Exception as e:
+            failure(f"{e} is missing from config.json")
+            
+        filepath = args.filepath
+        key = args.key
+
+        if key is None:
+            key = db.get_current_key_for_user(user_id)
+            if key is None:
+                failure("provide a key id or set a default one", db)
+        else:
+            key = db.get_key_by_key_id(key)
+            if key is None:
+                failure("provide a key id or set a default one", db)
+        
+        key_id = key[0]
+        e = int.from_bytes(base64.b64decode(key[2]), byteorder=sys.byteorder)
+        n = int.from_bytes(base64.b64decode(key[3]), byteorder=sys.byteorder)
+        key = (e, n)
+        rsa.RSA_encrypt_file(filepath, os.path.join(encrypted_path, os.path.basename(filepath)), key) #aici da fail daca encrypted_path nu exista -> rezolva
+        db.add_file(os.path.basename(filepath), os.path.join(encrypted_path, os.path.basename(filepath)), key_id, user_id)
     elif args.command == 'delete':
-        args = delete.parse_known_args()
+        filename = args.filename
+        file = db.get_file_by_filename(user_id, filename)
+        db.delete_file(user_id, filename)
+
+        if file is None:
+            failure('file not found', db)
+        path = file[2]
+
+        try:
+            os.remove(path)
+        except OSError as e: 
+            failure(f"File located at {path} can't be removed", db)
     else:
         commander.print_help()
 
-    # with open('config.json', 'r') as fptr:
-    #     config = json.loads(fptr.read())
-
-    # try:
-    #     key_len = config['key_length']
-    #     db_path = config['db_path']
-    #     if key_len < 64:
-    #         print('key_length must be at least 64 bits long')
-    # except KeyError as e:
-    #     print(f"{e} is missing from config.json")
-
-    # db.connect(db_path)
-
-    # src = sys.argv[1]
-    # dest = sys.argv[2]
-    # restore = sys.argv[3]
-
-    # public_key, private_key = rsa.RSA_key_gen(key_len) 
-    # username = os.getlogin()
-    # user = db.get_user_by_username(username)
-    # if user is None:
-    #     user_id = db.add_user(username)
-    # else:
-    #     user_id = user[0]
-
-    # try:
-    #     key_id = db.add_key(user_id, str(public_key[0]), str(public_key[1]))
-    #     rsa.RSA_encrypt_file(src, dest, public_key)
-    #     db.add_file(os.path.basename(src), dest, key_id, user_id)
-    #     rsa.RSA_decrypt_file(dest, restore, private_key)
-    # except sqlite3.IntegrityError:
-    #     print(f'{src} is not unique')
-
-    # db.disconnect()
+    db.disconnect()

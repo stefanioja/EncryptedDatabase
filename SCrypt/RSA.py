@@ -69,7 +69,7 @@ def RSA_decrypt(ciphertext: bytes, private_key: tuple[int, int]) -> bytes:
 def RSA_encrypt_file(path_src: str, path_dest: str, public_key: tuple[int, int]) -> None:
     n = public_key[1]
     block_size = get_size_in_bytes(n) - 1 - 3
-
+    
     block_walk(path_src, path_dest, block_size, RSA_encrypt, public_key)
 
 def RSA_decrypt_file(path_src: str, path_dest: str, private_key: tuple[int, int]) -> None:
