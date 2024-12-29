@@ -20,7 +20,6 @@ def connect(filepath: str) -> None:
 
 def disconnect() -> None:
     global con, cursor
-    print('disconnecting')
     cursor.close()
     con.close()
 
@@ -94,6 +93,7 @@ def get_files_by_user_id(user_id):
     return files
 
 #UPDATE
+#change to id here
 def update_user(new_current_key_id, username):
     global con, cursor
     cursor.execute("UPDATE users SET current_key_id = ? WHERE username = ?", (new_current_key_id, username))

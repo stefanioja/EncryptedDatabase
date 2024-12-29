@@ -8,9 +8,19 @@ import SCrypt.RSA as rsa
 import SCrypt.utils as utils
 import db.dbconn as db
 
+#TODO: a lot of error handling ig.
+
+def file_print(msg, path):
+    if path is None:
+        print(msg)
+    else:
+        with open(path, 'a+') as writer:
+            writer.write(f'{msg}\n')
+
 def failure(msg, db):
     print(msg)
-    db.disconnect()
+    if db is not None:
+        db.disconnect()
     os._exit(-1)
 
 if __name__ == '__main__':
@@ -33,6 +43,12 @@ if __name__ == '__main__':
     delete = subcommander.add_parser('delete', description='deletes a file from the database')
     delete.add_argument('-f', '--filename', help='name of the file to be deleted', required=True, type=str)
 
+    account = subcommander.add_parser('account', description='helps view and manage data linked to your account')
+    account.add_argument('-f', '--files', help='show files', action='store_true', required=False)
+    account.add_argument('-k', '--keys', help='shows keys', action='store_true', required=False)
+    account.add_argument('-d', '--default', help='updates the default key for the current user', required=False, type=int)
+    account.add_argument('-o', '--output', help='file where the output will be stored', required=False, type=str)
+
     args = commander.parse_args()
 
     abs_path = os.path.abspath(__file__)
@@ -42,14 +58,12 @@ if __name__ == '__main__':
         with open(os.path.join(parent_dir, 'config.json'), 'r') as fptr:
             config = json.loads(fptr.read())
     except FileNotFoundError:
-        print('config.json not found')
-        os._exit(-1)
+        failure('config.json not found', None)  
 
     try:
         db_path = config['db_path']
     except KeyError as e:
-        print(f"{e} is missing from config.json")
-        os._exit(-1)
+        failure(f'{e} is missing from config.json', None)
 
     db.connect(os.path.join(parent_dir, db_path))
     username = os.getlogin()
@@ -146,6 +160,23 @@ if __name__ == '__main__':
             os.remove(path)
         except OSError as e: 
             failure(f"File located at {path} can't be removed", db)
+    elif args.command == 'account':
+        output = None
+        if args.output is not None:
+            output = args.output
+        if args.files:
+            files = db.get_files_by_user_id(user_id)
+
+            for file in files:
+                file_print(f'id: {file[0]}, filename: {file[1]}, dir: {os.path.dirname(file[2])}, key_id: {file[3]}', output)
+
+        if args.keys:
+            keys = db.get_keys_by_user_id(user_id)
+            for key in keys:
+                file_print(f'id: {key[0]}, e: {key[2]}, n: {key[3]}', output)
+
+        if args.default is not None:
+            db.update_user(args.default, username)
     else:
         commander.print_help()
 
