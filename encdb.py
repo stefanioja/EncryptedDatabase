@@ -1,3 +1,12 @@
+"""This module implements an enctyption tool.
+
+Functions:
+    failure(msg, db): Handle errors
+        by printing a message
+        and disconnecting from the database.
+    file_print(msg, path): Print or save the provided message to a file.
+"""
+
 import json
 import os
 import sys
@@ -5,12 +14,18 @@ import base64
 import argparse
 import re
 import sqlite3
-import SCrypt.RSA as rsa
-import SCrypt.utils as utils
+import scrypt.rsa as rsa
+import scrypt.utils as utils
 import db.dbconn as db
 
 
 def failure(msg, db):
+    """Handle errors by printing the message and disconnecting from the database.
+
+    Arguments:
+        msg: The error message to display.
+        db: The database connection to close (if not None).
+    """
     print(msg)
     if db is not None:
         db.disconnect()
@@ -18,59 +33,127 @@ def failure(msg, db):
 
 
 def file_print(msg, path):
+    """Print or save the provided message to a file.
+
+    Arguments:
+        msg: The message to be printed or saved.
+        path: The file path where the message will be saved,
+            or None for stdout.
+
+    """
     if path is None:
         print(msg)
     else:
         try:
-            with open(path, 'a+') as writer:
-                writer.write(f'{msg}\n')
+            with open(path, "a+") as writer:
+                writer.write(f"{msg}\n")
         except (FileNotFoundError, PermissionError):
             failure(f"couldn't write in file {args.output}", db)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     commander = argparse.ArgumentParser(
-        prog='EncryptedDatabase', description='Tool to encrypt and manage files')
-    subcommander = commander.add_subparsers(dest='command')
+        prog="EncryptedDatabase",
+        description="Tool to encrypt and manage files",
+    )
+    subcommander = commander.add_subparsers(dest="command")
 
     read = subcommander.add_parser(
-        'read', description='decrypts a file from database')
+        "read", description="decrypts a file from database"
+    )
     read.add_argument(
-        '-f', '--filename', help='name of the file to be decrypted', required=True, type=str)
+        "-f",
+        "--filename",
+        help="name of the file to be decrypted",
+        required=True,
+        type=str,
+    )
     read.add_argument(
-        '-k', '--key', help='private key for decryption', required=True, type=str)
+        "-k",
+        "--key",
+        help="private key for decryption",
+        required=True,
+        type=str,
+    )
     read.add_argument(
-        '-o', '--output', help='file where the content will be stored', required=False, type=str)
+        "-o",
+        "--output",
+        help="file where the content will be stored",
+        required=False,
+        type=str,
+    )
 
     generate = subcommander.add_parser(
-        'generate', description='generates a new key pair')
+        "generate", description="generates a new key pair"
+    )
     generate.add_argument(
-        '-d', '--default', help='updates the default key for the current user', required=False, action='store_true')
+        "-d",
+        "--default",
+        help="updates the default key for the current user",
+        required=False,
+        action="store_true",
+    )
     generate.add_argument(
-        '-o', '--output', help='file where the keys will be stored', required=False, type=str)
+        "-o",
+        "--output",
+        help="file where the keys will be stored",
+        required=False,
+        type=str,
+    )
 
     encrypt = subcommander.add_parser(
-        'encrypt', description='encrypt a file and adds it to the database')
+        "encrypt", description="encrypt a file and adds it to the database"
+    )
     encrypt.add_argument(
-        '-f', '--filepath', help='path of the file to be encrypted', required=True, type=str)
+        "-f",
+        "--filepath",
+        help="path of the file to be encrypted",
+        required=True,
+        type=str,
+    )
     encrypt.add_argument(
-        '-k', '--key', help='id of the public key used for decryption', required=False, type=int)
+        "-k",
+        "--key",
+        help="id of the public key used for decryption",
+        required=False,
+        type=int,
+    )
 
     delete = subcommander.add_parser(
-        'delete', description='deletes a file from the database')
+        "delete", description="deletes a file from the database"
+    )
     delete.add_argument(
-        '-f', '--filename', help='name of the file to be deleted', required=True, type=str)
+        "-f",
+        "--filename",
+        help="name of the file to be deleted",
+        required=True,
+        type=str,
+    )
 
     account = subcommander.add_parser(
-        'account', description='helps view and manage data linked to your account')
-    account.add_argument('-f', '--files', help='show files',
-                         action='store_true', required=False)
-    account.add_argument('-k', '--keys', help='shows keys',
-                         action='store_true', required=False)
+        "account",
+        description="helps view and manage data linked to your account",
+    )
     account.add_argument(
-        '-d', '--default', help='updates the default key for the current user', required=False, type=int)
+        "-f", "--files", help="show files", action="store_true", required=False
+    )
     account.add_argument(
-        '-o', '--output', help='file where the output will be stored', required=False, type=str)
+        "-k", "--keys", help="shows keys", action="store_true", required=False
+    )
+    account.add_argument(
+        "-d",
+        "--default",
+        help="updates the default key for the current user",
+        required=False,
+        type=int,
+    )
+    account.add_argument(
+        "-o",
+        "--output",
+        help="file where the output will be stored",
+        required=False,
+        type=str,
+    )
 
     args = commander.parse_args()
 
@@ -78,22 +161,22 @@ if __name__ == '__main__':
     parent_dir = os.path.dirname(abs_path)
 
     try:
-        with open(os.path.join(parent_dir, 'config.json'), 'r') as fptr:
+        with open(os.path.join(parent_dir, "config.json"), "r") as fptr:
             config = json.loads(fptr.read())
     except FileNotFoundError:
-        failure('config.json not found', None)
+        failure("config.json not found", None)
 
     try:
-        db_path = config['db_path']
+        db_path = config["db_path"]
     except KeyError as e:
-        failure(f'{e} is missing from config.json', None)
+        failure(f"{e} is missing from config.json", None)
 
     try:
         db.connect(os.path.join(parent_dir, db_path))
     except FileNotFoundError:
-        failure('database schema not found', None)
+        failure("database schema not found", None)
     except sqlite3.Error:
-        failure('database connection failed', None)
+        failure("database connection failed", None)
 
     username = os.getlogin()
     user = db.get_user_by_username(username)
@@ -103,39 +186,39 @@ if __name__ == '__main__':
     else:
         user_id = user[0]
 
-    if args.command == 'read':
+    if args.command == "read":
         filename = args.filename
         key = args.key
         output = args.output
 
         file = db.get_file_by_filename(user_id, filename)
         if file is None:
-            failure('file not found', db)
+            failure("file not found", db)
 
         path = file[2]
 
-        key.strip('()')
+        key.strip("()")
         regex = r"(\S+)[, ]+(\S+)"
         match = re.match(regex, key)
         if match:
             key = (match.group(1), match.group(2))
         else:
-            failure('invalid key format', db)
+            failure("invalid key format", db)
 
         d = int.from_bytes(base64.b64decode(key[0]), byteorder=sys.byteorder)
         n = int.from_bytes(base64.b64decode(key[1]), byteorder=sys.byteorder)
         key = (d, n)
         try:
-            rsa.RSA_decrypt_file(path, output, key)
+            rsa.decrypt_file(path, output, key)
         except FileNotFoundError:
-            failure(f'{path} not found', db)
-    elif args.command == 'generate':
+            failure(f"{path} not found", db)
+    elif args.command == "generate":
         try:
-            key_len = config['key_length']
+            key_len = config["key_length"]
         except KeyError as e:
             failure(f"{e} is missing from config.json")
 
-        public_key, private_key = rsa.RSA_key_gen(key_len)
+        public_key, private_key = rsa.key_gen(key_len)
         public_key = utils.base64_tuple(public_key)
         private_key = utils.base64_tuple(private_key)
 
@@ -143,20 +226,20 @@ if __name__ == '__main__':
         if args.default:
             db.update_user(key_id, user_id)
 
-        e = public_key[0].decode('ascii')
-        d = private_key[0].decode('ascii')
-        n = private_key[1].decode('ascii')
+        e = public_key[0].decode("ascii")
+        d = private_key[0].decode("ascii")
+        n = private_key[1].decode("ascii")
 
-        key_pair = f'({e}, {n})\n({d}, {n})'
+        key_pair = f"({e}, {n})\n({d}, {n})"
 
         if args.output is not None:
-            with open(args.output, 'w+') as writer:
+            with open(args.output, "w+") as writer:
                 writer.write(key_pair)
         else:
             print(key_pair)
-    elif args.command == 'encrypt':
+    elif args.command == "encrypt":
         try:
-            encrypted_path = config['encrypted_path']
+            encrypted_path = config["encrypted_path"]
         except Exception as e:
             failure(f"{e} is missing from config.json")
 
@@ -176,36 +259,46 @@ if __name__ == '__main__':
         e = int.from_bytes(base64.b64decode(key[2]), byteorder=sys.byteorder)
         n = int.from_bytes(base64.b64decode(key[3]), byteorder=sys.byteorder)
         key = (e, n)
-        rsa.RSA_encrypt_file(filepath, os.path.join(encrypted_path, os.path.basename(
-            filepath)), key)  # aici da fail daca encrypted_path nu exista -> rezolva
-        db.add_file(os.path.basename(filepath), os.path.join(
-            encrypted_path, os.path.basename(filepath)), key_id, user_id)
-    elif args.command == 'delete':
+        rsa.encrypt_file(
+            filepath,
+            os.path.join(encrypted_path, os.path.basename(filepath)),
+            key,
+        )  # aici da fail daca encrypted_path nu exista -> rezolva
+        db.add_file(
+            os.path.basename(filepath),
+            os.path.join(encrypted_path, os.path.basename(filepath)),
+            key_id,
+            user_id,
+        )
+    elif args.command == "delete":
         filename = args.filename
         file = db.get_file_by_filename(user_id, filename)
         if file is None:
-            failure('file not found', db)
+            failure("file not found", db)
 
         db.delete_file(user_id, filename)
         path = file[2]
 
         try:
             os.remove(path)
-        except OSError as e:
+        except OSError:
             failure(f"File located at {path} can't be removed", db)
-    elif args.command == 'account':
+    elif args.command == "account":
         output = args.output
         if args.files:
             files = db.get_files_by_user_id(user_id)
 
             for file in files:
-                file_print(f'id: {file[0]}, filename: {file[1]}, dir: {
-                           os.path.dirname(file[2])}, key_id: {file[3]}', output)
+                file_print(
+                    f"""id: {file[0]}, filename: {file[1]}, dir: {
+                           os.path.dirname(file[2])}, key_id: {file[3]}""",
+                    output,
+                )
 
         if args.keys:
             keys = db.get_keys_by_user_id(user_id)
             for key in keys:
-                file_print(f'id: {key[0]}, e: {key[2]}, n: {key[3]}', output)
+                file_print(f"id: {key[0]}, e: {key[2]}, n: {key[3]}", output)
 
         if args.default is not None:
             key_id = args.default
