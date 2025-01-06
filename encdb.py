@@ -159,20 +159,21 @@ if __name__ == "__main__":
 
     abs_path = os.path.abspath(__file__)
     parent_dir = os.path.dirname(abs_path)
-
+    
+    json_path = os.path.join(parent_dir, "config.json")
     try:
-        with open(os.path.join(parent_dir, "config.json"), "r") as fptr:
+        with open(json_path, "r") as fptr:
             config = json.loads(fptr.read())
     except FileNotFoundError:
         failure("config.json not found", None)
 
     try:
-        db_path = config["db_path"]
+        db_path = os.path.join(parent_dir, config["db_path"])
     except KeyError as e:
         failure(f"{e} is missing from config.json", None)
 
     try:
-        db.connect(os.path.join(parent_dir, db_path))
+        db.connect(db_path)
     except FileNotFoundError:
         failure("database schema not found", None)
     except sqlite3.Error:
@@ -259,14 +260,17 @@ if __name__ == "__main__":
         e = int.from_bytes(base64.b64decode(key[2]), byteorder=sys.byteorder)
         n = int.from_bytes(base64.b64decode(key[3]), byteorder=sys.byteorder)
         key = (e, n)
+
+        filename = os.path.basename(filepath)
+        encrypted_file_path = os.path.join(encrypted_path, filename)
         rsa.encrypt_file(
             filepath,
-            os.path.join(encrypted_path, os.path.basename(filepath)),
+            encrypted_file_path,
             key,
-        )  # aici da fail daca encrypted_path nu exista -> rezolva
+        )
         db.add_file(
-            os.path.basename(filepath),
-            os.path.join(encrypted_path, os.path.basename(filepath)),
+            filename,
+            encrypted_file_path,
             key_id,
             user_id,
         )
