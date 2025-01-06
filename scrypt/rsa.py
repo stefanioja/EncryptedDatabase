@@ -2,17 +2,17 @@
 
 Functions:
     key_gen(key_len: int) -> tuple[tuple[int, int], tuple[int, int]]:
-        Generates a public and a private key for RSA encryption/decryption.
+        Generate a public and a private key for RSA encryption/decryption.
     encrypt(plaintext: bytes, public_key: tuple[int, int]) -> bytes:
-        Encrypts a plaintext message using the public RSA key.
+        Encrypt a plaintext message using the public RSA key.
     decrypt(ciphertext: bytes, private_key: tuple[int, int]) -> bytes:
-        Decrypts a ciphertext message using the private RSA key.
+        Decrypt a ciphertext message using the private RSA key.
     encrypt_file(path_src: str, path_dest: str, public_key: tuple[int,
         int]):
-        Encrypts a file using the public RSA key.
+        Encrypt a file using the public RSA key.
     decrypt_file(path_src: str, path_dest: str, private_key: tuple[int,
         int]):
-        Decrypts a file using the private RSA key.
+        Decrypt a file using the private RSA key.
 """
 
 import random
