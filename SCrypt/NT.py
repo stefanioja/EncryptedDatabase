@@ -1,13 +1,15 @@
+""""""
 import random
 import sympy
+
 
 def prime_gen(size: int) -> int:
     """
     Generates a random prime number
-    
+
     Arguments:
         size: size of the number to be generated (in bits)
-        
+
     Returns:
         A prime number that needs <=size bits to be written
     """
