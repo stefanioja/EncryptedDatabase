@@ -175,7 +175,7 @@ if __name__ == "__main__":
         failure("config.json not found", None)
 
     try:
-        db_path = os.path.join(parent_dir, config["db_path"])
+        db_path = config["db_path"]
     except KeyError as e:
         failure(f"{e} is missing from config.json", None)
 
@@ -269,6 +269,10 @@ if __name__ == "__main__":
         key = (e, n)
 
         filename = os.path.basename(filepath)
+
+        if not os.path.exists(encrypted_path):
+            failure(f"{encrypted_path} doesn't exist", db)
+
         dir_path = os.path.join(encrypted_path, username)
         if not os.path.exists(dir_path):
             os.mkdir(dir_path)
