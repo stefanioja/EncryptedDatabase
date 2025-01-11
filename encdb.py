@@ -148,6 +148,13 @@ if __name__ == "__main__":
         type=int,
     )
     account.add_argument(
+        "-e",
+        "--erase",
+        help="deletes all data linked to the current user(including the encrypted files)",
+        required=False,
+        action="store_true",
+    )
+    account.add_argument(
         "-o",
         "--output",
         help="file where the output will be stored",
@@ -159,7 +166,7 @@ if __name__ == "__main__":
 
     abs_path = os.path.abspath(__file__)
     parent_dir = os.path.dirname(abs_path)
-    
+
     json_path = os.path.join(parent_dir, "config.json")
     try:
         with open(json_path, "r") as fptr:
@@ -262,7 +269,14 @@ if __name__ == "__main__":
         key = (e, n)
 
         filename = os.path.basename(filepath)
-        encrypted_file_path = os.path.join(encrypted_path, filename)
+        dir_path = os.path.join(encrypted_path, username)
+        if not os.path.exists(dir_path):
+            os.mkdir(dir_path)
+        
+        encrypted_file_path = os.path.join(dir_path, filename)
+        if os.path.exists(encrypted_file_path):
+            failure("filename already exists in the db", db)
+
         rsa.encrypt_file(
             filepath,
             encrypted_file_path,
@@ -310,6 +324,18 @@ if __name__ == "__main__":
             if key is None:
                 failure(f"key {key_id} wasn't found in the db", db)
             db.update_user(key_id, user_id)
+
+        if args.erase:
+            files = db.get_files_by_user_id(user_id)
+
+            for file in files:
+                path = file[2]
+                try:
+                    os.remove(path)
+                except OSError:
+                    failure(f"File located at {path} can't be removed", db)
+            
+            db.delete_user(user_id)
     else:
         commander.print_help()
 

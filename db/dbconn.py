@@ -56,6 +56,7 @@ def connect(filepath: str):
         sql = reader.read()
 
     cursor.executescript(sql)
+    cursor.execute("PRAGMA foreign_keys=ON")
     con.commit()
 
 
